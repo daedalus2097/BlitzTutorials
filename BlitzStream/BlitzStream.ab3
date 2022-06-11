@@ -1,0 +1,529 @@
+; XTRA
+; Embedded .xtra Header
+; 
+; General Info
+; -------------------------------------------------------
+; ExePath         = ""
+; ExeFile         = ""
+; CreateIcon      = 1
+; Residents       = ""
+; 
+; Compiler
+; -------------------------------------------------------
+; StringBuffer    = 10240
+; MakeSmallest    = 0
+; FuncOptimize    = 1
+; Version         = 0.0.0
+; NumberOfBuilds  = 278
+; 
+; Debugger
+; -------------------------------------------------------
+; CliArgs         = ""
+; StackSize       = 80000
+; RuntimeDebug    = 1
+; DebugInfo       = 0
+; CreateDbgFile   = 65535
+; OverflowCheck   = 0
+; AssemblerCheck  = 0
+; InterruptCheck  = 1
+; AutoRun         = 1
+; 
+; Editor
+; -------------------------------------------------------
+; CursorLine      = 166
+; CursorColumn    = 16
+; LabelSearch     = ""
+; LabelRemark     = 0
+; LabelAll        = 0
+; LabelPosition   = 0
+; 
+; Blitz Objects
+; -------------------------------------------------------
+; Max File        = 5
+; Max GadgetList  = 5
+; Max Queue       = 10
+; Max Screen      = 5
+; Max Shape       = 100
+; Max CopList     = 10
+; Max Sprite      = 20
+; Max Stencil     = 5
+; Max Module      = 5
+; Max Window      = 20
+; Max Anim        = 10
+; Max Sound       = 10
+; Max Bank        = 5
+; Max Buffer      = 10
+; Max Slice       = 10
+; Max Page        = 4
+; Max Tape        = 5
+; Max IntuiFont   = 5
+; Max MedModule   = 8
+; Max Palette     = 4
+; Max MenuList    = 5
+; Max BlitzFont   = 4
+; Max GTList      = 20
+; Max BitMap      = 20
+; Max IconInfo    = 1
+; Max NChunky     = 50
+; Max MUIObject   = 50
+; Max PTModule    = 5
+; Max AsyncReq    = 4
+; Max Req-Lib     = 5
+; Max GTMenuList  = 5
+; Max Console     = 5
+; Max TCPSock     = 5
+; Max XBSound     = 10
+; Max Chunky      = 20
+; /XTRA
+
+
+
+#scorebmap = 6
+#scoreshape = 20
+#fg = 0
+#bg = 1
+
+Syntax 2
+WBStartup
+
+
+; Since our map is infinite, the array only needs to cover the display (incl. scroll)
+Dim tiles(50, 17)
+
+
+BitMap #fg, 688, 256, 4 ;320 * 2 + 3 * 16 ; Foreground
+
+BitMap #bg, 768, 256, 4 ; 256 * 3 ; Background
+
+LoadBitMap 1, "mountains.iff"
+
+BlockScroll 0, 0, 256, 256, 256, 0
+BlockScroll 0, 0, 256, 256, 512, 0
+
+LoadPalette 0, "palette.pal"
+LoadPalette 1, "gradient.pal" ; This is our sky gradient
+
+For i.w = 1 To 3
+  LoadShape i, "tile" + Str$(i) + ".iff"
+Next i
+
+
+BitMap 5, 192, 32, 4
+
+LoadBitMap 5, "balls-16col.iff"
+
+SpriteMode 1 ; 32-pixel sprites
+
+For i = 0 To 5
+  GetaShape i + 10, i LSL 5, 0, 32, 32
+  MidHandle i + 10
+  GetaSprite i, i + 10
+Next i
+Free BitMap 5
+
+
+InitShape #scoreshape, 96, 8, 4
+ShapesBitMap #scoreshape, #scorebmap
+
+Queue 0, 2 ; This is the queue for erasing and blitting the score each frame
+
+
+LoadSound 0, "jump.8svx"
+
+
+
+
+;BlockScroll 0, 0, 320, 256, 368, 0
+
+
+
+NEWTYPE .ball
+  x.q ; Position
+  y.q
+  dx.q ; Speed
+  dy.q
+  d2y.q ; Acceleration
+  animframe.q ; Current animation frame
+  mapx.w ; Position within the map
+  mapy.w
+  gnd.b  ; =1 if we're on the ground, 0 if we're in the air
+  points.w
+End NEWTYPE
+
+
+DEFTYPE .ball ball
+DEFTYPE .w jx, jy, jb, prevjx, prevjy, prevjb, tilex, tiley, groundtile
+
+USEPATH ball
+
+
+
+#running = 1
+#gameover = 2
+
+status.b = #running ; Tells us whether we're running or not
+
+bgdx.q = 0.5 ; This is the speed of the background (pixels per frame
+
+fgdx.w = 2 ; And the speed of the foreground (pixels per frame)
+
+
+fgbmappos.w = 0 ; The displayed X position of the foreground bitmap
+bgbmappos.q = 0 ; The displayed X position of the background, quick type to allow fractional part
+
+pointcounter.w = 0 ; Counts frames passed to gain a point
+
+gapcounter.w = 50 ; Pixels left until the next gap is added
+
+gapstart.b = 0 ; We need the tile for the start of the gap
+
+
+; Smooth scroll + dual playfield + AGA palette + 8 bitplanes
+coplistflags.l = $10 + $20 + $10000 + 8
+InitCopList 0, 44, 256, coplistflags, 8, 48, -4 ; -4 for the AGA background gradient
+
+
+Delay_ 50
+
+BLITZ
+
+
+; This statement resets the game. Because it's called from within the game loop,
+; it needs to be defined within the BLITZ mode context
+
+Statement initgame{}
+  SHARED tiles(), status, ball, gapcounter, pointcounter, fgbmappos, bgbmappos
+
+
+  For i.w = 0 To 42
+    For j.w = 0 To 16
+      tiles(i, j) = 0
+    Next j
+    tiles (i, 13) = 2
+  Next i
+
+
+  ; A couple of floating platforms
+  tiles(12, 10) = 1
+  tiles(13, 10) = 2
+  tiles(14, 10) = 3
+  tiles(34, 10) = 1
+  tiles(35, 10) = 2
+  tiles(36, 10) = 3
+
+
+  Use BitMap #fg
+
+  Cls
+  Delay_ 2
+
+  For i = 0 To 23
+    For j.w = 0 To 15
+      If tiles(i, j)
+        BlitMode CookieMode
+        Block tiles(i, j), i LSL 4, j LSL 4
+      Else
+        BlitMode EraseMode
+        Blit 1, i LSL 4, j LSL 4
+
+      End If
+    Next j
+  Next i
+
+  Use BitMap #scorebmap
+  BitMapOutput #scorebmap
+  Cls
+  Locate 0, 0
+  Colour 22
+  NPrint "Score: 0"
+  MakeCookie #scoreshape ; Cookie has to be created manually
+
+
+  \x = 100
+  \y = 100 ;196
+
+  \dx = 0
+  \dy = 0
+  \d2y = 0
+  \points = 0
+  \animframe = 0
+  \mapx = 0
+  \mapy = 0
+  \gnd = 0
+
+  fgbmappos = 0
+  bgbmappos = 0
+
+
+  pointcounter = 0
+
+  gapcounter = 50
+
+  status = #running
+
+  Use BitMap #fg
+End Statement
+
+
+
+initgame{}
+
+
+
+CreateDisplay 0
+
+; Set up AGA palette banks, foreground 0-15, background 16-31, sprites 32-47
+DisplayControls 0, 0, $1c00, Xor($11, %10)
+
+DisplayPalette 0, 0
+DisplayBitMap 0, 0, 1
+
+DisplayRainbow 0, 21, 1   ;21
+
+BitMapOutput 0
+
+Repeat
+  VWait
+  DisplayBitMap 0, 0, fgbmappos, 0, 1, bgbmappos, 0
+
+  UnQueue 0
+  QBlit 0, #scoreshape, fgbmappos + 10, 240
+
+  DisplaySprite 0, \animframe, \x, \y, 0
+
+
+  ; Get our joystick status
+  jb = Joyb(1)
+  jx = Joyx(1)
+  jy = Joyy(1)
+  ; We don't use the Y-axis, I'm leaving this here in case we
+  ; want to use it for menu control later
+
+
+  If status = #running ; All the stuff to run the game
+
+    fgbmappos + fgdx
+    If fgbmappos >= 352
+      fgbmappos - 352
+    End If
+
+    bgbmappos + bgdx
+    If bgbmappos >= 256
+      bgbmappos - 256
+    End If
+
+    If jb = 1
+      If prevjb = 0 ; button pressed
+        If \gnd
+          Sound 0, %1111
+          \d2y = -2
+          \gnd = 0
+        End If
+      End If
+    End If
+
+    If jb = 0
+      \d2y = 0
+    End If
+
+    If \gnd = 0
+      \dy + \d2y + 0.2
+      \y + \dy
+
+      \d2y + 0.33
+      If \d2y >= 0
+        \d2y = 0
+      End If
+
+      If \y >= 240 ; #ded
+        status = #gameover
+        BitMapOutput #fg
+        Locate fgbmappos LSR 3 + 10, 10
+        Colour 4
+        Print "You died. Score ", \points
+      End If
+
+      If \y < 16
+        \y = 16
+      End If
+    End If
+
+    \mapx = (fgbmappos + \x) LSR 4
+
+    If \dy >= 0
+      \mapy = (\y - 16) LSR 4
+      If tiles(\mapx, \mapy + 2) ; collision
+        \d2y = 0
+        \dy = 0
+        \gnd = 1
+        \y = \mapy LSL 4 + 16
+      Else
+      \gnd = 0
+      End If
+
+    End If
+
+
+    If jx ; Left or right pressed
+      If jx = 1 ; Right
+        If \gnd ; Speed changes more if we're on the ground
+          \dx + 0.5
+        Else
+          \dx + 0.25
+        End If
+        If \dx > 3 Then \dx = 3
+      Else ; jx = -1, Left
+        If \gnd
+          \dx - 0.5
+        Else
+          \dx - 0.25
+        End If
+        If \dx < -3 Then \dx = -3
+      End If
+    Else ; No X-axis joystick input, so we slow down to 0 (which is scroll speed)
+      If \dx > 0
+        \dx - 0.1
+      Else
+        If \dx < 0
+          \dx + 0.1
+        End If
+      End If
+    End If
+
+    \x + \dx
+    If \x > 300
+      \x = 300
+    Else
+      If \x < 20
+        \x = 20
+      End If
+    End If
+
+
+
+    ; This adjusts the animation speed based on the X movement speed
+    \animframe + 0.25 + (\dx ASR 4)
+    If \animframe >= 6
+      \animframe = 0
+    Else
+      If \animframe < 0
+        \animframe = 0
+      End If
+    End If
+
+
+    ; We get a point for each 10 frames without falling through a gap
+    pointcounter + 1
+    If pointcounter >= 10
+      \points + 1
+      pointcounter - 10
+      BitMapOutput #scorebmap
+      Locate 7, 0
+      Colour 22
+      Print \points
+      MakeCookie #scoreshape
+    End If
+
+
+    gapcounter - 1
+
+    tilex = fgbmappos LSR 4
+
+
+    ; Check if it's time to create a gap
+    If gapcounter <= 0
+      gaplength.w = Rnd((\points LSR 5) + 2) + 4
+      gapcounter = 100 + Rnd(200 - (\points LSR 5))
+      gapstart = 1
+    End If
+
+    ; Our gap is actually 2 tiles longer to allow for the start and end gap tiles
+
+    If fgbmappos MOD 16 = 0
+      gaptile.w = tilex
+      If gaptile < 1
+        gaptile + 22
+      End If
+
+      If gaplength > 0
+        If gapstart ; First tile of the gap
+          tiles(gaptile - 1, 13) = 3
+          tiles(gaptile + 21, 13) = 3
+          gapstart = 0
+        Else
+          If gaplength = 1 ; Last tile of the gap
+            tiles(gaptile - 1, 13) = 1
+            tiles(gaptile + 21, 13) = 1
+          Else
+            tiles(gaptile - 1, 13) = 0
+            tiles(gaptile + 21, 13) = 0
+          End If
+        End If
+        gaplength - 1
+      Else
+        tiles(gaptile - 1, 13) = 2
+        tiles(gaptile + 21, 13) = 2
+      End If
+    End If
+
+
+
+    ; Puts some debug info on the foreground bitmap
+    ;BitMapOutput #fg
+    ;Locate 40, 0
+    ;Print tilex, "        "
+    ;Locate 40, 1
+    ;Print \mapx, "        "
+
+
+    ;Set tilex so that we're always dealing with the left half of the bitmap first
+    If tilex > 22
+      tilex - 22
+    End If
+
+    For i = 0 To fgdx - 1
+      tiley = fgbmappos MOD 16 + i ; The Y-tile we want to blit this time
+
+      If tiles(tilex + 21, tiley)
+        BlitMode CookieMode
+        Block tiles(tilex + 21, tiley), (tilex + 21) LSL 4, tiley LSL 4
+
+      Else ; blank
+        BlitMode EraseMode
+        Blit 1, (tilex + 21) LSL 4, tiley LSL 4
+      End If
+
+      If tilex > 0
+        If tiles(tilex - 1, tiley)
+          BlitMode CookieMode
+          Block tiles(tilex - 1, tiley), (tilex - 1) LSL 4, tiley LSL 4
+
+        Else ; blank
+          BlitMode EraseMode
+          Blit 1, (tilex - 1) LSL 4, tiley LSL 4
+        End If
+      End If
+    Next i
+  End If
+
+
+  If status = #gameover
+    If jb AND prevjb = 0 ; Clicked fire
+      initgame{}
+    End If
+  End If
+
+
+  ; Record our joystick inputs this frame to compare with next frame
+  prevjx = jx
+  prevjy = jy
+  prevjb = jb
+
+Until RawStatus($45) ; Escape pressed
+
+AMIGA
+
+; Maybe save high scores here?
+
+End
+

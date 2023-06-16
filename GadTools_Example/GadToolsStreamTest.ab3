@@ -1,0 +1,238 @@
+; XTRA
+; Embedded .xtra Header
+; 
+; General Info
+; -------------------------------------------------------
+; ExePath         = ""
+; ExeFile         = ""
+; CreateIcon      = 1
+; Residents       = "amigalibs.res"
+; 
+; Compiler
+; -------------------------------------------------------
+; StringBuffer    = 10240
+; MakeSmallest    = 0
+; FuncOptimize    = 1
+; Version         = 0.0.0
+; NumberOfBuilds  = 60
+; 
+; Debugger
+; -------------------------------------------------------
+; CliArgs         = ""
+; StackSize       = 80000
+; RuntimeDebug    = 1
+; DebugInfo       = 0
+; CreateDbgFile   = 65535
+; OverflowCheck   = 0
+; AssemblerCheck  = 0
+; InterruptCheck  = 1
+; AutoRun         = 1
+; 
+; Editor
+; -------------------------------------------------------
+; CursorLine      = 57
+; CursorColumn    = 1
+; LabelSearch     = ""
+; LabelRemark     = 0
+; LabelAll        = 0
+; LabelPosition   = 0
+; 
+; Blitz Objects
+; -------------------------------------------------------
+; Max File        = 5
+; Max GadgetList  = 5
+; Max Queue       = 10
+; Max Screen      = 5
+; Max Shape       = 100
+; Max CopList     = 10
+; Max Sprite      = 20
+; Max Stencil     = 5
+; Max Module      = 5
+; Max Window      = 20
+; Max Anim        = 10
+; Max Sound       = 10
+; Max Bank        = 5
+; Max Buffer      = 10
+; Max Slice       = 10
+; Max Page        = 4
+; Max Tape        = 5
+; Max IntuiFont   = 5
+; Max MedModule   = 8
+; Max Palette     = 4
+; Max MenuList    = 5
+; Max BlitzFont   = 4
+; Max GTList      = 20
+; Max BitMap      = 10
+; Max IconInfo    = 1
+; Max NChunky     = 50
+; Max MUIObject   = 50
+; Max PTModule    = 5
+; Max AsyncReq    = 4
+; Max Req-Lib     = 5
+; Max GTMenuList  = 5
+; Max Console     = 5
+; Max TCPSock     = 5
+; Max XBSound     = 10
+; Max Chunky      = 20
+; /XTRA
+
+WBStartup
+
+
+WbToScreen 0
+
+ShowScreen 0
+
+
+#gtlist = 0
+
+#button1 = 0
+#button2 = 1
+#string = 2
+
+
+NEWTYPE .gad
+  x.w
+  y.w
+  width.w
+  height.w
+End NEWTYPE
+
+Dim gadgets.gad(5)
+
+msg$ = "Test Message"
+
+
+
+font$ = "times.font"
+fontysize.w = 9
+
+
+
+
+*scr.Screen = Peek.l(Addr Screen(0))
+
+If *scr = 0 Then End
+
+NPrint "screen width: ", *scr\Width
+NPrint "screen height: ", *scr\Height
+
+;End
+
+*fon.TextAttr = *scr\Font
+If *fon = 0 Then End
+
+font$ = Peek$(*fon\ta_Name)
+fontysize = *fon\ta_YSize
+
+NPrint "font: ", font$
+NPrint "size: ", fontysize
+
+
+
+LoadFont 0, font$, fontysize
+
+
+
+
+Statement calculategadgets{}
+  SHARED gadgets(), msg$, fontysize
+
+  iw.w = InnerWidth
+  ih.w = InnerHeight
+
+
+  ; String gadget
+  gadgets(#string)\width = iw - 20
+  gadgets(#string)\x = 10
+  gadgets(#string)\height = fontysize + 7
+  gadgets(#string)\y = fontysize + 12
+
+
+  ; Button 1
+  gadgets(#button1)\x = 10
+  gadgets(#button1)\width = iw / 2 - 15
+  gadgets(#button1)\height = fontysize + 7
+  gadgets(#button1)\y = ih - 11 - gadgets(#button1)\height
+
+
+
+  ; Button 2
+  gadgets(#button2)\x = iw / 2 + 5
+  gadgets(#button2)\width = iw / 2 - 15
+  gadgets(#button2)\height = fontysize + 7
+  gadgets(#button2)\y = gadgets(#button1)\y
+
+
+
+  GTButton #gtlist, #button1, gadgets(#button1)\x, gadgets(#button1)\y, gadgets(#button1)\width, gadgets(#button1)\height, "Read", #PLACETEXT_IN
+  GTButton #gtlist, #button2, gadgets(#button2)\x, gadgets(#button2)\y, gadgets(#button1)\width, gadgets(#button2)\height, "Reset", #PLACETEXT_IN
+
+  GTString #gtlist, #string, gadgets(#string)\x, gadgets(#string)\y, gadgets(#string)\width, gadgets(#string)\height, "Message", #PLACETEXT_ABOVE, 20, msg$
+
+  AttachGTList #gtlist, 0
+End Statement
+
+
+
+
+
+
+
+
+flags.l = #WFLG_DRAGBAR|#WFLG_DEPTHGADGET|#WFLG_CLOSEGADGET
+flags |#WFLG_ACTIVATE;|#WFLG_GIMMEZEROZERO
+
+
+cpu.w = Processor
+If cpu > 0 Then flags | #WFLG_SIZEGADGET
+
+
+
+SizeLimits 150, 3 * fontysize + 70, 640, 512
+;SizeLimits 150, 150, 640, 512
+
+Window 0, 100, 50, 200, 200, flags, "GadTools Test", 1, 2
+
+WindowFont 0
+
+calculategadgets{}
+
+
+DefaultOutput
+
+
+quit.b = False
+
+Repeat
+  ev.l = WaitEvent
+
+  Select ev
+    Case #IDCMP_CLOSEWINDOW
+      quit = True
+
+    Case #IDCMP_GADGETUP
+      gh.w = GadgetHit
+      NPrint "Gadget ", gh, " clicked"
+
+      Select gh
+        Case #button1
+          NPrint GTGetString(#gtlist, #string)
+        Case #button2
+          GTSetString #gtlist, #string, "Test Message"
+        Case #string
+          NPrint GTGetString(#gtlist, #string)
+      End Select
+
+    Case #IDCMP_NEWSIZE
+      NPrint "Window resized"
+      msg$ = GTGetString(#gtlist, #string)
+      DetachGTList #gtlist
+      Free GTList #gtlist
+      ;VWait 2
+      InnerCls
+      calculategadgets{}
+  End Select
+Until quit
+
+End

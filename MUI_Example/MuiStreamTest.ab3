@@ -1,0 +1,186 @@
+; XTRA
+; Embedded .xtra Header
+; 
+; General Info
+; -------------------------------------------------------
+; ExePath         = ""
+; ExeFile         = ""
+; CreateIcon      = 1
+; Residents       = "all.res"
+; 
+; Compiler
+; -------------------------------------------------------
+; StringBuffer    = 10240
+; MakeSmallest    = 0
+; FuncOptimize    = 1
+; Version         = 0.0.0
+; NumberOfBuilds  = 19
+; 
+; Debugger
+; -------------------------------------------------------
+; CliArgs         = ""
+; StackSize       = 80000
+; RuntimeDebug    = 1
+; DebugInfo       = 0
+; CreateDbgFile   = 65535
+; OverflowCheck   = 0
+; AssemblerCheck  = 0
+; InterruptCheck  = 1
+; AutoRun         = 1
+; 
+; Editor
+; -------------------------------------------------------
+; CursorLine      = 13
+; CursorColumn    = 48
+; LabelSearch     = ""
+; LabelRemark     = 0
+; LabelAll        = 0
+; LabelPosition   = 0
+; 
+; Blitz Objects
+; -------------------------------------------------------
+; Max File        = 5
+; Max GadgetList  = 5
+; Max Queue       = 10
+; Max Screen      = 5
+; Max Shape       = 100
+; Max CopList     = 10
+; Max Sprite      = 20
+; Max Stencil     = 5
+; Max Module      = 5
+; Max Window      = 20
+; Max Anim        = 10
+; Max Sound       = 10
+; Max Bank        = 5
+; Max Buffer      = 10
+; Max Slice       = 10
+; Max Page        = 4
+; Max Tape        = 5
+; Max IntuiFont   = 5
+; Max MedModule   = 8
+; Max Palette     = 4
+; Max MenuList    = 5
+; Max BlitzFont   = 4
+; Max GTList      = 20
+; Max BitMap      = 10
+; Max IconInfo    = 1
+; Max NChunky     = 50
+; Max MUIObject   = 50
+; Max PTModule    = 5
+; Max AsyncReq    = 4
+; Max Req-Lib     = 5
+; Max GTMenuList  = 5
+; Max Console     = 5
+; Max TCPSock     = 5
+; Max XBSound     = 10
+; Max Chunky      = 20
+; /XTRA
+
+
+WBStartup
+
+MUIApplicationTitle "StreamTest"
+
+MUIApplicationVersion "$VER:StreamTest 0.1 (16.05.2023)"
+
+MUIApplicationBase "STREAMTEST"
+
+MUIApplicationAuthor "Rob the Nerd"
+MUIApplicationDescription "Testing out Blitz MUI Stuff!"
+MUIApplicationCopyright "(c) 2023 Rob the nerd"
+
+
+; Object constants
+#leftbutton = 1
+#rightbutton = 2
+#buttongroup = 3
+
+#text = 4
+#maingroup = 5
+
+
+#vspace1 = 6
+#vspace2 = 7
+
+#stringbox = 8
+
+
+#mainwindow = 20
+#mainapplication = 21
+
+
+
+; Event constants
+#ev_close   = -1
+#ev_button1 = 1
+#ev_button2 = 2
+
+
+
+
+MUIAddTags #leftbutton, #MUIA_Weight, 50
+MUIKeyButton #leftbutton, "Get Text", "1"
+MUIKeyButton #rightbutton, "Reset Text", "2"
+
+MUIAddObjsHGroup #buttongroup, #leftbutton, #rightbutton
+MUICreateHGroup #buttongroup
+
+MUILabel #text, "Please enter text", #MUIO_Label_Centered
+MUIVSpace #vspace1, 0
+MUIVSpace #vspace2, 0
+MUIString #stringbox, "Delete this", 50
+
+
+MUIAddObjsVGroup #maingroup, #vspace1, #text, #stringbox, #vspace2, #buttongroup
+MUICreateVGroup #maingroup
+
+MUICreateWindow #mainwindow, "Stream MUI Test", "MAIN", #maingroup
+MUIAddSubWindow #mainwindow
+
+If MUICreateApplication = False
+  NPrint "Error creating application!"
+  End
+End If
+
+
+MUINotifyApp #mainwindow, #MUIA_Window_CloseRequest, 1, #ev_close
+MUINotifyApp #leftbutton, #MUIA_Pressed, 0, #ev_button1
+MUINotifyApp #rightbutton, #MUIA_Pressed, 0, #ev_button2
+
+
+If MUIOpenWindow(#mainwindow) = False
+  NPrint "Error opening main window!"
+  End
+End If
+
+
+
+quit.b = False
+.mainloop
+Repeat
+  ev.l = MUIWaitEvent
+  If ev
+    ;Stop
+    NPrint "Event: ", ev
+    Select ev
+      Case #ev_close
+        NPrint "Quitting!"
+        quit = True
+      Case #ev_button1
+        NPrint "Button 1 pressed!"
+        ;ourtext$ = MUIGetString$(#stringbox)
+        res.l = MUIGet(#stringbox, #MUIA_String_Contents)
+        NPrint Peek$(res)
+        NPrint ourtext$
+      Case #ev_button2
+        NPrint "Button 2 pressed!"
+        MUISetString #stringbox, "Delete this"
+      Default
+        NPrint "Unknown event"
+    End Select
+  End If
+Until quit
+
+MUICloseWindow #mainwindow
+
+End

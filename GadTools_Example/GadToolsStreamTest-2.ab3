@@ -1,0 +1,430 @@
+; XTRA
+; Embedded .xtra Header
+; 
+; General Info
+; -------------------------------------------------------
+; ExePath         = ""
+; ExeFile         = ""
+; CreateIcon      = 1
+; Residents       = "amigalibs.res"
+; 
+; Compiler
+; -------------------------------------------------------
+; StringBuffer    = 10240
+; MakeSmallest    = 0
+; FuncOptimize    = 1
+; Version         = 0.0.0
+; NumberOfBuilds  = 134
+; 
+; Debugger
+; -------------------------------------------------------
+; CliArgs         = ""
+; StackSize       = 80000
+; RuntimeDebug    = 1
+; DebugInfo       = 0
+; CreateDbgFile   = 65535
+; OverflowCheck   = 0
+; AssemblerCheck  = 0
+; InterruptCheck  = 1
+; AutoRun         = 1
+; 
+; Editor
+; -------------------------------------------------------
+; CursorLine      = 274
+; CursorColumn    = 27
+; LabelSearch     = ""
+; LabelRemark     = 0
+; LabelAll        = 0
+; LabelPosition   = 0
+; 
+; Blitz Objects
+; -------------------------------------------------------
+; Max File        = 5
+; Max GadgetList  = 5
+; Max Queue       = 10
+; Max Screen      = 5
+; Max Shape       = 100
+; Max CopList     = 10
+; Max Sprite      = 20
+; Max Stencil     = 5
+; Max Module      = 5
+; Max Window      = 20
+; Max Anim        = 10
+; Max Sound       = 10
+; Max Bank        = 5
+; Max Buffer      = 10
+; Max Slice       = 10
+; Max Page        = 4
+; Max Tape        = 5
+; Max IntuiFont   = 5
+; Max MedModule   = 8
+; Max Palette     = 4
+; Max MenuList    = 5
+; Max BlitzFont   = 4
+; Max GTList      = 20
+; Max BitMap      = 10
+; Max IconInfo    = 1
+; Max NChunky     = 50
+; Max MUIObject   = 50
+; Max PTModule    = 5
+; Max AsyncReq    = 4
+; Max Req-Lib     = 5
+; Max GTMenuList  = 5
+; Max Console     = 5
+; Max TCPSock     = 5
+; Max XBSound     = 10
+; Max Chunky      = 20
+; /XTRA
+
+WBStartup
+
+
+WbToScreen 0
+
+ShowScreen 0
+
+
+#gtlist = 0
+
+#button1 = 0
+#button2 = 1
+#string = 2
+#list = 3
+#cycle = 4
+
+
+
+; Menu constants
+#menu1 = 0
+#load = 0
+#save = 1
+#spacer1 = 2
+#about = 3
+;#aboutmui = 4
+#spacer2 = 4
+#quit = 5
+
+#menu2 = 1
+#settings = 0
+#add = 1
+#remove = 2
+
+
+
+
+
+NEWTYPE .gad
+  x.w
+  y.w
+  width.w
+  height.w
+End NEWTYPE
+
+Dim gadgets.gad(5)
+
+
+NEWTYPE .listentry
+  dummy.w
+  itemname.s
+  itemtype.w
+End NEWTYPE
+
+Dim List listitems.listentry(0)
+
+itemcount.w = 0
+
+msg$ = "Test Message"
+
+
+
+font$ = "times.font"
+fontysize.w = 9
+
+
+
+
+
+
+
+
+*scr.Screen = Peek.l(Addr Screen(0))
+
+If *scr = 0 Then End
+
+NPrint "screen width: ", *scr\Width
+NPrint "screen height: ", *scr\Height
+
+;End
+
+*fon.TextAttr = *scr\Font
+If *fon = 0 Then End
+
+font$ = Peek$(*fon\ta_Name)
+fontysize = *fon\ta_YSize
+
+NPrint "font: ", font$
+NPrint "size: ", fontysize
+
+
+LoadFont 0, font$, fontysize
+
+
+
+
+
+wbortop.w = *scr\WBorTop
+wborleft.w = *scr\WBorLeft
+
+NPrint "Offset: ", wborleft, " x ", wbortop
+
+
+woffsetx.w = wborleft
+woffsety.w = wbortop + fontysize + 1
+
+
+currentitem.w = -1
+currenttype.w = 0
+
+
+Statement calculategadgets{}
+  SHARED gadgets(), msg$, fontysize, woffsetx, woffsety, wbortop, listitems(), currenttype
+
+  iw.w = InnerWidth
+  ih.w = InnerHeight
+
+
+  ; String gadget
+  gadgets(#string)\width = iw - 20
+  gadgets(#string)\x = 10 - woffsetx
+  gadgets(#string)\height = fontysize + 7
+  gadgets(#string)\y = fontysize + 1 + wbortop
+
+
+  ; Button 1
+  gadgets(#button1)\x = 10 - woffsetx
+  gadgets(#button1)\width = iw / 2 - 15
+  gadgets(#button1)\height = fontysize + 7
+  gadgets(#button1)\y = ih - 11 - gadgets(#button1)\height - woffsety
+
+
+
+  ; Button 2
+  gadgets(#button2)\x = iw / 2 + 5 - woffsetx
+  gadgets(#button2)\width = iw / 2 - 15
+  gadgets(#button2)\height = fontysize + 7
+  gadgets(#button2)\y = gadgets(#button1)\y
+
+  ; Listview
+  gadgets(#list)\x = 10 - woffsetx
+  gadgets(#list)\y = gadgets(#string)\y + fontysize + 10
+  gadgets(#list)\width = iw - 20
+  gadgets(#list)\height = gadgets(#button1)\y - gadgets(#list)\y - fontysize * 3 - 20
+
+  ; Cycle
+  gadgets(#cycle)\width = iw - 20
+  gadgets(#cycle)\x = 10 - woffsetx
+  gadgets(#cycle)\height = fontysize + 7
+  gadgets(#cycle)\y = gadgets(#button1)\y - fontysize - 10
+                                                                                                                                                                                                                                                        
+
+  GTNewLookProp On
+
+  GTButton #gtlist, #button1, gadgets(#button1)\x, gadgets(#button1)\y, gadgets(#button1)\width, gadgets(#button1)\height, "Read", #PLACETEXT_IN
+  GTButton #gtlist, #button2, gadgets(#button2)\x, gadgets(#button2)\y, gadgets(#button1)\width, gadgets(#button2)\height, "Reset", #PLACETEXT_IN
+
+  GTString #gtlist, #string, gadgets(#string)\x, gadgets(#string)\y, gadgets(#string)\width, gadgets(#string)\height, "Message", #PLACETEXT_ABOVE, 20, msg$
+
+  GTTags #GTLV_ShowSelected, 0
+  GTListView #gtlist, #list, gadgets(#list)\x, gadgets(#list)\y, gadgets(#list)\width, gadgets(#list)\height, "Items", #PLACETEXT_BELOW, listitems()
+
+  GTCycle #gtlist, #cycle, gadgets(#cycle)\x, gadgets(#cycle)\y, gadgets(#cycle)\width, gadgets(#cycle)\height, "Type", #PLACETEXT_ABOVE, "Disk|Drawer|Tool|Project|Trash";, currenttype
+
+  AttachGTList #gtlist, 0
+End Statement
+
+
+Statement movetoitem{item.w}
+  SHARED listitems()
+
+  ResetList listitems()
+
+  For i.w = 0 To item
+    x.w = NextItem(listitems())
+  Next i
+End Statement
+
+
+GTMenuTitle 0, #menu1, "Project"
+GTMenuItem 0, 0, #menu1, #load, "Load...", "L"
+GTMenuItem 0, 0, #menu1, #save, "Save...", "S"
+GTMenuItem 0, 0, #menu1, #spacer1
+GTMenuItem 0, 0, #menu1, #about, "About...", "?"
+GTMenuItem 0, 0, #menu1, #spacer2
+GTMenuItem 0, 0, #menu1, #quit, "Quit", "Q"
+
+GTMenuTitle 0, #menu2, "Preferences"
+GTMenuItem 0, 0, #menu2, #settings, "Settings...", ""
+GTMenuItem 0, 0, #menu2, #add, "Add Item", "A"
+GTMenuItem 0, 0, #menu2, #remove, "Remove Item", "R"
+
+;CreateMenuStrip 0
+
+
+
+
+
+
+
+flags.l = #WFLG_DRAGBAR|#WFLG_DEPTHGADGET|#WFLG_CLOSEGADGET
+flags |#WFLG_ACTIVATE|#WFLG_GIMMEZEROZERO
+
+
+cpu.w = Processor
+If cpu > 0 Then flags | #WFLG_SIZEGADGET
+
+
+minysize.w = 4 * fontysize + 150
+SizeLimits 150, minysize, 640, 512
+;SizeLimits 150, 150, 640, 512
+
+
+AddIDCMP #LISTVIEWIDCMP
+
+*win.Window = Window(0, 100, 50, 200, 250, flags, "GadTools Test", 1, 2)
+
+;*win.Window = Peek.l(Addr Window(0))
+
+If *win = 0 Then End
+
+winminw.w = *win\MinWidth
+winminh.w = *win\MinHeight
+winmaxw.w = *win\MaxWidth
+winmaxh.w = *win\MaxHeight
+
+
+DefaultOutput
+
+
+NPrint "Min: ", winminw, " x ", winminh
+NPrint "Max: ", winmaxw, " x ", winmaxh
+
+
+
+GTSetMenu 0
+
+WindowFont 0
+
+calculategadgets{}
+
+
+
+quit.b = False
+
+Repeat
+  ev.l = WaitEvent
+
+  Select ev
+    Case #IDCMP_CLOSEWINDOW
+      quit = True
+
+    Case #IDCMP_GADGETUP
+      gh.w = GadgetHit
+      NPrint "Gadget ", gh, " clicked"
+
+      Select gh
+        Case #button1
+          NPrint GTGetString(#gtlist, #string)
+
+        Case #button2
+          GTSetString #gtlist, #string, "Test Message"
+
+        Case #string
+          NPrint GTGetString(#gtlist, #string)
+
+        Case #list
+          ec.w = EventCode
+
+          NPrint "Item selected: ", ec
+
+
+          movetoitem{ec}
+          currentitem = ec
+          GTSetString #gtlist, #string, listitems()\itemname
+          GTSetAttrs #gtlist, #cycle, #GTCY_Active, listitems()\itemtype
+          NPrint "Type: ", listitems()\itemtype
+        Case #cycle
+          ec.w = EventCode
+
+          NPrint "Type selected: ", ec
+          If currentitem <> -1
+            listitems()\itemtype = ec
+          End If
+      End Select
+
+    Case #IDCMP_NEWSIZE
+      NPrint "Window resized"
+      msg$ = GTGetString(#gtlist, #string)
+      currentitem.w = GTGetAttrs(#gtlist, #list, #GTLV_Selected)
+      NPrint "Current item: ", currentitem
+      topitem.w = GTGetAttrs(#gtlist, #list, #GTLV_Top)
+      currenttype = GTGetAttrs(#gtlist, #cycle, #GTCY_Active)
+      DetachGTList #gtlist
+      Free GTList #gtlist
+      ;VWait 2
+      InnerCls
+      calculategadgets{}
+      GTSetAttrs #gtlist, #list, #GTLV_Selected, currentitem
+      GTSetAttrs #gtlist, #list, #GTLV_Top, topitem
+      GTSetAttrs #gtlist, #cycle, #GTCY_Active, currenttype
+
+    Case #IDCMP_MENUPICK
+      NPrint "Menu picked!"
+      mth.w = MenuHit
+      mih.w = ItemHit
+      NPrint "Menu: ", mth, ", ", mih
+      Select mth
+        Case #menu1
+          Select mih
+            Case #about
+              x.w = Request("GadTools Test", "This is a test", "Fancy!")
+
+            Case #quit
+              quit = True
+          End Select
+
+        Case #menu2
+          Select mih
+            Case #settings
+              NPrint "Settings"
+
+            Case #add
+              NPrint "Add item to listview"
+
+              If AddItem(listitems())
+                listitems()\itemname = "This is item " + Str$(itemcount)
+                itemcount + 1
+                GTChangeList #gtlist, #list
+                GTChangeList #gtlist, #list, listitems()
+
+                ;GT_BeginRefresh_ *win
+                ;GT_EndRefresh_ *win, True
+                ;DetachGTList #gtlist
+                ;Free GTList #gtlist
+                ;calculategadgets{}
+              End If
+
+            Case #remove
+              currentitem.w = GTGetAttrs(#gtlist, #list, #GTLV_Selected)
+              movetoitem{currentitem}
+              KillItem listitems()
+              GTChangeList #gtlist, #list
+              GTChangeList #gtlist, #list, listitems()
+                                                                                                                                                                                                                                            
+              GTSetAttrs #gtlist, #list, #GTLV_Selected, currentitem
+          End Select
+
+      End Select
+  End Select
+Until quit
+
+End

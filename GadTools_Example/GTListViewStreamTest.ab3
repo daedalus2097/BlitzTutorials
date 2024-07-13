@@ -1,0 +1,423 @@
+; XTRA
+; Embedded .xtra Header
+; 
+; General Info
+; -------------------------------------------------------
+; ExePath         = ""
+; ExeFile         = ""
+; CreateIcon      = 1
+; Residents       = "amigalibs.res"
+; 
+; Compiler
+; -------------------------------------------------------
+; StringBuffer    = 10240
+; MakeSmallest    = 0
+; FuncOptimize    = 1
+; Version         = 0.0.0
+; NumberOfBuilds  = 147
+; 
+; Debugger
+; -------------------------------------------------------
+; CliArgs         = ""
+; StackSize       = 80000
+; RuntimeDebug    = 1
+; DebugInfo       = 0
+; CreateDbgFile   = 65535
+; OverflowCheck   = 0
+; AssemblerCheck  = 0
+; InterruptCheck  = 1
+; AutoRun         = 1
+; 
+; Editor
+; -------------------------------------------------------
+; CursorLine      = 250
+; CursorColumn    = 11
+; LabelSearch     = ""
+; LabelRemark     = 0
+; LabelAll        = 0
+; LabelPosition   = 0
+; 
+; Blitz Objects
+; -------------------------------------------------------
+; Max File        = 5
+; Max GadgetList  = 5
+; Max Queue       = 10
+; Max Screen      = 5
+; Max Shape       = 100
+; Max CopList     = 10
+; Max Sprite      = 20
+; Max Stencil     = 5
+; Max Module      = 5
+; Max Window      = 20
+; Max Anim        = 10
+; Max Sound       = 10
+; Max Bank        = 5
+; Max Buffer      = 10
+; Max Slice       = 10
+; Max Page        = 4
+; Max Tape        = 5
+; Max IntuiFont   = 5
+; Max MedModule   = 8
+; Max Palette     = 4
+; Max MenuList    = 5
+; Max BlitzFont   = 4
+; Max GTList      = 20
+; Max BitMap      = 10
+; Max IconInfo    = 1
+; Max NChunky     = 50
+; Max MUIObject   = 50
+; Max PTModule    = 5
+; Max AsyncReq    = 4
+; Max Req-Lib     = 5
+; Max GTMenuList  = 5
+; Max Console     = 5
+; Max TCPSock     = 5
+; Max XBSound     = 10
+; Max Chunky      = 20
+; /XTRA
+
+WBStartup
+Syntax 2
+optimize 4
+
+XINCLUDE "autoexit.include.ab3"
+XINCLUDE "dos.include.ab3"
+XINCLUDE "intuition.include.ab3"
+
+#g_listview = 1
+#g_parent = 2
+#g_volumes = 3
+#g_string = 4
+#g_up = 5
+#g_down = 6
+#g_add = 7
+#g_delete = 8
+
+NEWTYPE .listitem
+  dummy.w
+  name.s
+  magic.w
+  entrytype.b
+  path.s
+End NEWTYPE
+
+
+Dim List listitems.listitem(0)
+
+DEFTYPE .w currentitem, iw, ih, gadwidth, gadwidth4
+DEFTYPE .l esecs, emics, pesecs, pemics, ev, gh, pgh, pcurrentitem
+DEFTYPE .listitem tempbuff1, tempbuff2
+
+DEFTYPE .Window *myWin
+DEFTYPE .FileInfoBlock *fib
+
+MaxLen currentdir$ = 256
+
+*fib = AllocMem_(SizeOf .FileInfoBlock, 0)
+If *fib = 0
+  NPrint "GURU!!"
+  End
+End If
+
+currentitem = -1
+currentdir$ = dos_GetProgDir{"Blitz3:Sourcecodes"}
+NPrint "Current dir: ", currentdir$
+
+For i.w = 1 To 50
+  If AddItem(listitems())
+    listitems()\name = "Entry " + Str$(i)
+    listitems()\magic = i * 5
+  End If
+Next i
+
+
+Function.w stringpixels{text$}
+  SHARED *myWin
+
+  result.w = 0
+  result = TextLength_(*myWin\RPort, &text$, Len(text$))
+  Function Return result
+End Function
+
+
+Statement setcurrentitem{item.w}
+  SHARED listitems()
+  ResetList listitems()
+  For i.w = 0 To item
+    dummy.l = NextItem(listitems())
+  Next i
+End Statement
+
+
+Statement drawwindow{}
+  SHARED iw, ih, gadwidth, gadwidth4, listitems(), fysize
+
+  iw.w = InnerWidth
+  ih.w = InnerHeight
+
+  gadwidth.w = (iw - 15) / 2
+  gadwidth4.w = (iw - 25) / 4
+  gadysize.w = fysize + 6
+
+
+  gtsaddr.l = GTString(0, #g_string, 5, ih - 10, iw - 10, gadysize, "", 0, 255)
+  GTTags #GTLV_ShowSelected, gtsaddr
+
+  GTListView 0, #g_listview, 5, gadysize + 1, iw - 10, ih - gadysize * 3 - 20, "Files", #PLACETEXT_ABOVE, listitems()
+  GTButton 0, #g_parent, 5, ih - gadysize - 5, gadwidth, gadysize, "Parent", #PLACETEXT_IN
+  GTButton 0, #g_volumes, gadwidth + 11, ih - gadysize - 5, gadwidth, gadysize, "Volumes", #PLACETEXT_IN
+  GTButton 0, #g_up, 5, ih - gadysize * 2 - 10, gadwidth4, gadysize, "Up", #PLACETEXT_IN
+  GTButton 0, #g_down, gadwidth4 + 10, ih - gadysize * 2 - 10, gadwidth4, gadysize, "Down", #PLACETEXT_IN
+  GTButton 0, #g_add, gadwidth4 * 2 + 16, ih - gadysize * 2 - 10, gadwidth4, gadysize, "Add", #PLACETEXT_IN
+  GTButton 0, #g_delete, gadwidth4 * 3 + 21, ih - gadysize * 2 - 10, gadwidth4, gadysize, "Delete", #PLACETEXT_IN
+
+  AttachGTList 0, 0
+  GTBevelBox 0, 5, ih - gadysize * 2 - 15, iw - 10, 2, 0, 0
+
+End Statement
+
+
+Function.l readdir{dir$}
+  SHARED listitems()
+  entrycount.l = 0
+
+  ClearList listitems()
+  NPrint "Scanning dir: ", dir$
+
+  Repeat
+    If dir$ = ""
+      entry$ = dos_ScanVolumes{}
+    Else
+      entry$ = dos_FilePart{dos_ScanDir{dir$, "#?", #dos_scan_dirs|#dos_scan_files|#dos_scan_sorted}}
+    End If
+
+    If entry$
+      entrycount + 1
+      If AddItem(listitems())
+
+        listitems()\path = dos_AddPart{dir$, entry$}
+        ;NPrint "Full path: ", listitems()\path
+        If dir$ <> ""
+          If dos_IsDir{listitems()\path}
+            entry$ = "<dir> " + entry$
+            listitems()\entrytype = 1
+          End If
+        End If
+
+        listitems()\name = entry$
+        listitems()\magic = entrycount
+      Else
+        NPrint "Error trying to add item!"
+      End If
+    End If
+  Until entry$ = ""
+
+  Function Return entrycount
+End Function
+
+
+WbToScreen 0
+
+*myScreen.Screen = Peek.l(Addr Screen(0))
+*myTA.TextAttr = *myScreen\Font
+
+fname$ = Peek$(*myTA\ta_Name)
+fysize = *myTA\ta_YSize
+NPrint "Sys font: ", fname$, ":", fysize
+
+
+LoadFont 0, fname$, fysize
+
+SizeLimits 300, 200, 16384, 16384
+
+AddIDCMP #LISTVIEWIDCMP
+flags.l = #WFLG_ACTIVATE|#WFLG_CLOSEGADGET|#WFLG_DEPTHGADGET|#WFLG_DRAGBAR|#WFLG_SIZEGADGET
+
+*myWin.Window = Window(0, 200, 100, 400, 400, flags, "ListView Test", 1, 2)
+
+DefaultOutput
+
+Use IntuiFont 0
+
+swidth.w = stringpixels{"Delete"}
+NPrint "String width:", stringpixels{"Delete"}
+
+*myWin\MinWidth = (swidth + 10) * 4 + 45 ; Doesn't work
+
+
+GTNewLookProp On
+
+drawwindow{}
+
+quit.b = False
+
+Repeat
+  ev = intui_WaitEvent{} ;WaitEvent
+
+
+  ;NPrint "Event: ", Hex$(ev)
+  Select ev
+    Case #IDCMP_CLOSEWINDOW
+      quit = True
+
+    Case #IDCMP_NEWSIZE
+      NPrint "Window was resized"
+      DetachGTList 0
+      Free GTList 0
+      InnerCls
+      drawwindow{}
+
+    Case #IDCMP_GADGETUP
+      esecs = !event_seconds
+      emics = !event_micros
+
+      gh = !event_gadgethit ;GadgetHit
+      NPrint "Gadget hit"
+      NPrint esecs, " ", emics
+      NPrint pesecs, " ", pemics
+      Select gh
+        Case #g_parent
+          NPrint "Parent of: ", currentdir$
+          ;newstring$ = GTGetString(0, #g_string)
+          ;NPrint "String edited: ", newstring$
+
+          currentdir$ = dos_ParentPath{currentdir$}
+          ;dirlock.l = Lock_(&currentdir$, #ACCESS_READ)
+          ;If dirlock
+          ;  parentlock.l = ParentDir_(dirlock)
+          ;  If parentlock
+          ;    If Examine_(parentlock, *fib)
+          ;      currentdir$ = Peek$(*fib + 8);\fib_FileName)
+          ;      NPrint "Parent dir: ", currentdir$
+          ;    End If
+          ;    UnLock_ parentlock
+          ;  End If
+          ;  UnLock_ dirlock
+          ;End If
+
+          GTChangeList 0, #g_listview
+          NPrint readdir{currentdir$}, " entries found"
+          GTChangeList 0, #g_listview, listitems()
+
+        Case #g_volumes
+          NPrint "Volumes"
+          currentdir$ = ""
+          GTChangeList 0, #g_listview
+          NPrint readdir{currentdir$}, " entries found"
+          GTChangeList 0, #g_listview, listitems()
+
+        Case #g_listview
+          NPrint "ListView"
+          currentitem = !event_code ;EventCode
+          NPrint "Entry clicked: ", currentitem
+          setcurrentitem{currentitem}
+          NPrint "Magic number for ", listitems()\name, ": ", listitems()\magic
+          If listitems()\entrytype
+            NPrint "Entry is a directory"
+          Else
+            NPrint "Entry is a file"
+          End If
+
+          If DoubleClick_(pesecs, pemics, esecs, emics)
+            NPrint "Double-clicked"
+            If currentitem = pcurrentitem ; Same item as last time
+              If dos_IsFile{listitems()\path}
+                NPrint "Opening editor"
+                dos_RunCli{"SYS:Tools/EditPad", 0, 32768, 0, listitems()\path}
+              Else ; Open dir
+                currentdir$ = listitems()\path
+                NPrint "Opening dir ", currentdir$
+                GTChangeList 0, #g_listview
+                NPrint readdir{currentdir$}, " entries found"
+                GTChangeList 0, #g_listview, listitems()
+
+              End If
+            End If
+          End If
+          NPrint "current item ", currentitem, " prevcurrentitem ", pcurrentitem
+          pcurrentitem = currentitem
+
+        Case #g_string
+          newstring$ = GTGetString(0, #g_string)
+          NPrint "String edited: ", newstring$
+
+          If currentitem > -1
+            GTChangeList 0, #g_listview
+            listitems()\name = newstring$
+            GTChangeList 0, #g_listview, listitems()
+          End If
+
+        Case #g_up
+          If currentitem > 0
+
+            CopyType listitems(), tempbuff1
+            If PrevItem(listitems())
+              GTChangeList 0, #g_listview
+              CopyType listitems(), tempbuff2
+              CopyType tempbuff1, listitems()
+              If NextItem(listitems())
+                CopyType tempbuff2, listitems()
+              End If
+              GTChangeList 0, #g_listview, listitems()
+              currentitem - 1
+              GTSetHighlight 0, #g_listview, currentitem
+              dummy.w = PrevItem(listitems())
+            End If
+          End If
+
+        Case #g_down
+          If currentitem > -1
+            CopyType listitems(), tempbuff1
+            If NextItem(listitems()) ; There's a lower item
+              GTChangeList 0, #g_listview
+              CopyType listitems(), tempbuff2
+              CopyType tempbuff1, listitems()
+              If PrevItem(listitems())
+                CopyType tempbuff2, listitems()
+              End If
+              GTChangeList 0, #g_listview, listitems()
+              currentitem + 1
+              GTSetHighlight 0, #g_listview, currentitem
+              dummy = NextItem(listitems())
+            End If
+          End If
+
+        Case #g_add
+          If currentitem = -1
+            ResetList listitems()
+          End If
+
+          If AddItem(listitems())
+            GTChangeList 0, #g_listview
+            listitems()\name = "New Entry"
+            listitems()\magic = Rnd(100)
+            GTChangeList 0, #g_listview, listitems()
+            currentitem + 1
+            GTSetHighlight 0, #g_listview, currentitem
+
+          End If
+
+        Case #g_delete
+          If currentitem > -1
+            KillItem listitems()
+            GTChangeList 0, #g_listview
+            GTChangeList 0, #g_listview, listitems()
+            currentitem - 1
+            GTSetHighlight 0, #g_listview, currentitem
+
+          End If
+
+      End Select
+      pgh = gh
+
+  End Select
+
+  pesecs = esecs
+  pemics = emics
+
+Until quit
+
+FreeMem_ *fib, SizeOf .FileInfoBlock
+End
+
+

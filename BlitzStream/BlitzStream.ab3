@@ -14,13 +14,13 @@
 ; MakeSmallest    = 0
 ; FuncOptimize    = 1
 ; Version         = 0.0.0
-; NumberOfBuilds  = 278
+; NumberOfBuilds  = 310
 ; 
 ; Debugger
 ; -------------------------------------------------------
 ; CliArgs         = ""
 ; StackSize       = 80000
-; RuntimeDebug    = 1
+; RuntimeDebug    = 0
 ; DebugInfo       = 0
 ; CreateDbgFile   = 65535
 ; OverflowCheck   = 0
@@ -30,8 +30,8 @@
 ; 
 ; Editor
 ; -------------------------------------------------------
-; CursorLine      = 166
-; CursorColumn    = 16
+; CursorLine      = 1
+; CursorColumn    = 29
 ; LabelSearch     = ""
 ; LabelRemark     = 0
 ; LabelAll        = 0
@@ -130,6 +130,8 @@ Queue 0, 2 ; This is the queue for erasing and blitting the score each frame
 
 LoadSound 0, "jump.8svx"
 
+Dim parallax1.q (255)
+Dim parallax2.q (255)
 
 
 
@@ -163,13 +165,14 @@ USEPATH ball
 
 status.b = #running ; Tells us whether we're running or not
 
-bgdx.q = 0.5 ; This is the speed of the background (pixels per frame
+bgdx.q = 0.25 ; This is the speed of the background (pixels per frame
 
 fgdx.w = 2 ; And the speed of the foreground (pixels per frame)
 
 
 fgbmappos.w = 0 ; The displayed X position of the foreground bitmap
 bgbmappos.q = 0 ; The displayed X position of the background, quick type to allow fractional part
+bgbmappos2.q = 0 ; The displayed X position of the background, quick type to allow fractional part
 
 pointcounter.w = 0 ; Counts frames passed to gain a point
 
@@ -180,7 +183,7 @@ gapstart.b = 0 ; We need the tile for the start of the gap
 
 ; Smooth scroll + dual playfield + AGA palette + 8 bitplanes
 coplistflags.l = $10 + $20 + $10000 + 8
-InitCopList 0, 44, 256, coplistflags, 8, 48, -4 ; -4 for the AGA background gradient
+InitCopList 0, 44, 256, coplistflags, 8, 48, -7 ; -4 for the AGA background gradient
 
 
 Delay_ 50
@@ -253,6 +256,7 @@ Statement initgame{}
 
   fgbmappos = 0
   bgbmappos = 0
+  ;bgbmappos2 = 0
 
 
   pointcounter = 0
@@ -285,6 +289,8 @@ BitMapOutput 0
 Repeat
   VWait
   DisplayBitMap 0, 0, fgbmappos, 0, 1, bgbmappos, 0
+  DisplayScroll 0, &parallax2(0), &parallax1(0), 4
+  ;DisplayRainbow 0, 21, 1
 
   UnQueue 0
   QBlit 0, #scoreshape, fgbmappos + 10, 240
@@ -311,6 +317,12 @@ Repeat
     If bgbmappos >= 256
       bgbmappos - 256
     End If
+
+    parallax1(100) + bgdx
+    If parallax1(100) >= 128
+      parallax1(100) - 256
+    End If
+                                                                                                                                                                                                                                                      
 
     If jb = 1
       If prevjb = 0 ; button pressed
